@@ -1,125 +1,179 @@
-# 🎙️ Vocoder Implementation in VHDL
+# Channel Vocoder in VHDL
 
-A **channel vocoder** written in **VHDL**, built from modular, individually tested blocks: an **oscillator** (carrier), **IIR band-pass filters** (biquad), and an **envelope detector** (rectifier + low-pass filter), all tied together in `Vocoder_Top`.
+> A digital **channel vocoder** designed from scratch in VHDL: an oscillator generates a synthetic carrier, a bank of IIR band-pass filters splits the signal into frequency bands, and envelope detectors extract how loud each band is, so a voice can "speak through" a synthetic sound.
 
 ![Channel Vocoder](Channel_Vocoder.png)
 
 ---
 
-## 📖 Table of Contents
+## Table of Contents
 
-- [Overview](#-overview)
-- [How a Vocoder Works](#-how-a-vocoder-works)
-- [System Architecture](#-system-architecture)
-- [Modules](#-modules)
-  - [Oscillator](#1-oscillator)
-  - [Band-Pass Filter (IIR Biquad)](#2-band-pass-filter-iir-biquad)
-  - [Envelope Detector (Low-Pass Filter)](#3-envelope-detector-low-pass-filter)
-- [Repository Structure](#-repository-structure)
-- [Testing & Verification](#-testing--verification)
-- [Getting Started](#-getting-started)
-- [Tools & Technologies](#-tools--technologies)
-- [Future Improvements](#-future-improvements)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [What is this project?](#-what-is-this-project)
+- [What is a vocoder?](#-what-is-a-vocoder)
+- [What I did](#-what-i-did)
+- [System architecture](#-system-architecture)
+- [Module 1: Oscillator](#-module-1-oscillator-carrier-generator)
+- [Module 2: Band-pass filter](#-module-2-iir-band-pass-filter)
+- [Module 3: Envelope detector](#-module-3-envelope-detector)
+- [Putting it all together](#-putting-it-all-together)
+- [Repository structure](#-repository-structure)
+- [How to run the simulations](#-how-to-run-the-simulations)
+- [Results & conclusion](#-results--conclusion)
+- [Future work](#-future-work)
 - [Author](#-author)
 
 ---
 
-## 🔍 Overview
+## What is this project?
 
-A **vocoder** (voice encoder) takes the spectral shape of a speech signal (the *modulator*) and imposes it on another sound (the *carrier*), producing the classic "robot voice" effect.
+This project is a **hardware implementation of a vocoder** written in **VHDL**. The goal is to design, simulate and verify every building block of a channel vocoder at the digital-logic level, so that it can later run on an FPGA for real-time audio effects.
 
-This project implements a **channel vocoder** in hardware description language:
-
-- The voice is split into frequency bands by **IIR band-pass filters**.
-- The **envelope** of each band is extracted with a rectifier and a **low-pass filter**.
-- A synthetic carrier from the **oscillator** goes through a matching filter bank.
-- Each carrier band is scaled by the matching voice envelope, and the bands are summed into the output.
-
-Every block comes with its own **testbench** and simulation results.
-
-<!-- TODO: add context (course/lab, FPGA board, etc.) -->
+Instead of using ready-made DSP libraries, every block (oscillator, filters, envelope detector) is described in VHDL and tested with its own **testbench**.
 
 ---
 
-## 🧠 How a Vocoder Works
+## What is a vocoder?
 
-1. **Analysis**: the modulator (voice) passes through N band-pass filters.
-2. **Envelope detection**: each band is rectified and low-pass filtered to get its amplitude over time.
-3. **Synthesis**: the carrier passes through the same bank of band-pass filters.
-4. **Modulation**: each carrier band is multiplied by its voice envelope.
-5. **Mixing**: all bands are summed into the final output.
+A vocoder takes two signals:
+
+| Signal | Role | Example |
+|--------|------|---------|
+| **Modulator** | Provides the *shape* of the sound (what is being said) | A human voice |
+| **Carrier** | Provides the *sound* (the pitch and timbre) | A synthesizer / oscillator |
+
+It measures how the energy of the modulator is distributed across frequency bands, then forces the carrier to follow that distribution. The result is a voice that sounds robotic or "sung" by a synthesizer. It is the classic effect used in electronic music.
 
 ---
 
-## 🏗️ System Architecture
+## What I did
+
+1. **Studied the vocoder principle** and chose the *channel vocoder* architecture (analysis filter bank → envelope extraction → synthesis filter bank).
+2. **Designed the carrier source:** a digital **oscillator** in VHDL that produces the synthetic signal.
+3. **Designed the filter bank cell:** a **second-order IIR (biquad) band-pass filter** in VHDL, chosen because it reaches sharp frequency selectivity with very few coefficients.
+4. **Designed the envelope detector:** a **rectifier + low-pass filter** that tracks the amplitude of each band.
+5. **Wrote a testbench for every module** and checked its behaviour in simulation, waveform by waveform.
+6. **Integrated the blocks** in a top-level design (`Vocoder_Top`) following the channel vocoder block diagram.
+
+<!-- TODO: add any extra steps you did (coefficient calculation in MATLAB/Python, fixed-point conversion, FPGA synthesis, etc.) -->
+
+---
+
+## System architecture
 
 ![Channel Vocoder Architecture](Channel_Vocoder.png)
 
-| Parameter           | Value         |
-|---------------------|---------------|
-| Language            | VHDL          |
-| Filter type         | IIR band-pass (biquad) |
-| Number of channels  | `TODO`        |
-| Sampling frequency  | `TODO`        |
-| Data width          | `TODO`        |
-| Arithmetic          | `TODO` (fixed-point / integer) |
+**Signal flow:**
+
+```
+Voice ──► [Band-pass filters] ──► [Envelope detectors] ──┐
+                                                         ▼
+Oscillator ──► [Band-pass filters] ──────────────────► [ × ] ──► [ Σ ] ──► Vocoded output
+```
+
+1. The **voice** is split into frequency bands by the analysis band-pass filters.
+2. Each band goes through an **envelope detector** that outputs its slowly varying amplitude.
+3. The **oscillator** signal goes through an identical filter bank (synthesis).
+4. Each carrier band is **multiplied** by the envelope of the matching voice band.
+5. All bands are **summed** to build the output.
+
+| Parameter | Value |
+|-----------|-------|
+| Language | VHDL |
+| Filter type | IIR band-pass, biquad (2nd order) |
+| Number of channels | `TODO` |
+| Sampling frequency | `TODO` |
+| Data width | `TODO` |
 
 ---
 
-## 🧩 Modules
+## Module 1: Oscillator (carrier generator)
 
-### 1. Oscillator
+**Role:** produces the synthetic carrier signal. Its frequency decides the **pitch** of the final vocoded voice.
 
-Generates the **carrier signal** that gets shaped by the voice envelope. Its frequency sets the pitch of the vocoded output.
+![Oscillator block](Oscillator.png)
 
-![Oscillator](Oscillator.png)
+- Design: [`Oscillator.vhd`](Vocoder_Top/Oscillator/Oscillator.vhd)
+- Testbench: [`Testbensh_Oscillator.vhd`](Vocoder_Top/Oscillator/Testbensh_Oscillator.vhd)
 
-- **Source:** [`Oscillator.vhd`](Vocoder_Top/Oscillator/Oscillator.vhd)
-- **Testbench:** [`Testbensh_Oscillator.vhd`](Vocoder_Top/Oscillator/Testbensh_Oscillator.vhd)
+### Simulation waveform
 
-<!-- TODO: waveform type (sine / saw / square), generation method (LUT, phase accumulator...), frequency resolution -->
+![Oscillator simulation](Vocoder_Top/Oscillator/Oscillator_Test.png)
+
+**What the waveform shows:** the oscillator output after reset is released. The signal is periodic with a constant amplitude and a stable frequency of `TODO` Hz, which is exactly what the carrier needs: a clean, steady source rich enough for the filters to shape.
 
 ---
 
-### 2. Band-Pass Filter (IIR Biquad)
+## Module 2: IIR band-pass filter
 
-The analysis and synthesis stages use **second-order IIR (biquad) band-pass filters**. IIR filters give sharp band selectivity with few coefficients, which saves hardware resources.
+**Role:** the core of the vocoder. One band-pass filter lets only one slice of the spectrum through. Several of them with different centre frequencies form the **filter bank** that analyzes the voice and shapes the carrier.
 
-**Filter structure:**
+### Structure
 
-![IIR Structure](Vocoder_Top/Band_Pass%20Filtre/Filter_IIR_Structure.png)
+![IIR structure](Vocoder_Top/Band_Pass%20Filtre/Filter_IIR_Structure.png)
 
-**Biquad implementation:**
+### Biquad implementation
 
-![IIR Biquad](Vocoder_Top/Band_Pass%20Filtre/Filter_IIR_Biquad.png)
+![IIR biquad](Vocoder_Top/Band_Pass%20Filtre/Filter_IIR_Biquad.png)
 
-Difference equation:
+Each filter implements the second-order difference equation:
 
 ```
 y[n] = b0·x[n] + b1·x[n-1] + b2·x[n-2] − a1·y[n-1] − a2·y[n-2]
 ```
 
-- **Source:** [`Filter.vhd`](Vocoder_Top/Band_Pass%20Filtre/Filter.vhd)
-- **Testbench:** [`Filter_tb.vhd`](Vocoder_Top/Band_Pass%20Filtre/Filter_tb.vhd)
+where `b0, b1, b2` are the feed-forward coefficients and `a1, a2` the feedback coefficients that set the centre frequency and bandwidth.
 
-<!-- TODO: Direct Form I / II, coefficient format, center frequencies and Q -->
+- Design: [`Filter.vhd`](Vocoder_Top/Band_Pass%20Filtre/Filter.vhd)
+- Testbench: [`Filter_tb.vhd`](Vocoder_Top/Band_Pass%20Filtre/Filter_tb.vhd)
+
+### Simulation waveforms
+
+**Test 1:**
+
+![Band-pass test 1](Vocoder_Top/Band_Pass%20Filtre/Band-pass_Test.png)
+
+**Test 2:**
+
+![Band-pass test 2](Vocoder_Top/Band_Pass%20Filtre/Band-pass_Test2.png)
+
+**What the waveforms show:** the filter was tested with input signals at different frequencies. When the input frequency is **inside the pass-band** (around the centre frequency of `TODO` Hz), the output follows the input with a strong amplitude. When the input is **outside the pass-band**, the output is strongly attenuated. This confirms the filter is stable and selects the intended frequency band.
 
 ---
 
-### 3. Envelope Detector (Low-Pass Filter)
+## Module 3: Envelope detector
 
-Extracts the **amplitude envelope** of each voice band (rectification followed by low-pass filtering). This envelope later controls the carrier's amplitude.
+**Role:** an audio band oscillates thousands of times per second, but what the vocoder needs is only **how strong that band is over time**. The envelope detector rectifies the band signal and smooths it with a **low-pass filter**, leaving a slow curve that follows the band's amplitude.
 
-- **Source:** [`Enveloppe.vhd`](Vocoder_Top/Enveloppe-Low_Pass%20Filtre/Enveloppe.vhd)
-- **Testbench:** [`Enveloppe_tb.vhd`](Vocoder_Top/Enveloppe-Low_Pass%20Filtre/Enveloppe_tb.vhd)
+-  Design: [`Enveloppe.vhd`](Vocoder_Top/Enveloppe-Low_Pass%20Filtre/Enveloppe.vhd)
+-  Testbench: [`Enveloppe_tb.vhd`](Vocoder_Top/Enveloppe-Low_Pass%20Filtre/Enveloppe_tb.vhd)
 
-<!-- TODO: cutoff frequency, filter order -->
+### Simulation waveform
+
+![Envelope simulation](Vocoder_Top/Enveloppe-Low_Pass%20Filtre/Enveloppe_Test.png)
+
+**What the waveform shows:** the fast oscillating input is converted into a smooth output that rises and falls with the amplitude of the input. The high-frequency content is removed, and only the amplitude information remains, which is what controls the carrier in the synthesis stage.
 
 ---
 
-## 📁 Repository Structure
+## 🔗 Putting it all together
+
+Once each block was validated alone, they were combined following the channel vocoder diagram:
+
+| Stage | Block used | Purpose |
+|-------|-----------|---------|
+| Carrier source | Oscillator | Generates the synthetic sound |
+| Analysis | Band-pass filter bank | Splits the voice into frequency bands |
+| Envelope | Rectifier + low-pass filter | Measures the energy of each band |
+| Synthesis | Band-pass filter bank | Splits the carrier into the same bands |
+| Modulation | Multiplier | Applies voice energy to each carrier band |
+| Output | Adder | Sums all bands into the vocoded signal |
+
+![Full vocoder simulation](Vocoder_Top/Vocoder_Test_8_canal.png)
+--
+
+---
+
+## Repository structure
 
 ```
 Vocoder-Implementation/
@@ -128,12 +182,12 @@ Vocoder-Implementation/
 ├── Oscillator.png                       # Oscillator overview
 └── Vocoder_Top/
     ├── Band_Pass Filtre/
-    │   ├── Filter.vhd                   # IIR band-pass filter
+    │   ├── Filter.vhd                   # IIR biquad band-pass filter
     │   ├── Filter_tb.vhd                # Filter testbench
-    │   ├── Filter_IIR_Structure.png     # Filter structure diagram
+    │   ├── Filter_IIR_Structure.png     # Filter structure
     │   ├── Filter_IIR_Biquad.png        # Biquad diagram
-    │   ├── Band-pass_Test.png           # Simulation result
-    │   └── Band-pass_Test2.png          # Simulation result
+    │   ├── Band-pass_Test.png           # Simulation result 1
+    │   └── Band-pass_Test2.png          # Simulation result 2
     ├── Enveloppe-Low_Pass Filtre/
     │   ├── Enveloppe.vhd                # Envelope detector
     │   ├── Enveloppe_tb.vhd             # Envelope testbench
@@ -147,55 +201,13 @@ Vocoder-Implementation/
 
 ---
 
-## 🧪 Testing & Verification
+## Results & conclusion
 
-Each block was verified on its own with a dedicated VHDL testbench before integration.
+- The **oscillator** produces a stable periodic carrier.
+- The **IIR band-pass filter** passes in-band frequencies and rejects out-of-band ones.
+- The **envelope detector** turns fast audio into a smooth amplitude curve.
+- Every block is verified individually with its own testbench, and together they form the complete channel vocoder chain.
 
-| Module | Testbench | What is verified | Result |
-|--------|-----------|------------------|--------|
-| Oscillator | `Testbensh_Oscillator.vhd` | Output frequency and waveform shape | ✅ |
-| Band-pass filter | `Filter_tb.vhd` | Frequency selectivity: in-band signals pass, out-of-band signals are attenuated | ✅ |
-| Envelope detector | `Enveloppe_tb.vhd` | Output follows the amplitude of the input | ✅ |
+This project gave hands-on experience with **digital filter design, VHDL modelling, testbench-based verification, and hardware-oriented DSP**.
 
-### Oscillator
-
-![Oscillator Test](Vocoder_Top/Oscillator/Oscillator_Test.png)
-
-*Simulation waveform of the oscillator output.* <!-- TODO: say what the reader should see (frequency, amplitude) -->
-
-### Band-Pass Filter
-
-![Band-pass Test 1](Vocoder_Top/Band_Pass%20Filtre/Band-pass_Test.png)
-
-![Band-pass Test 2](Vocoder_Top/Band_Pass%20Filtre/Band-pass_Test2.png)
-
-*Filter response for test input signals.* <!-- TODO: describe the two test cases (e.g., in-band vs out-of-band frequency) -->
-
-### Envelope Detector
-
-![Envelope Test](Vocoder_Top/Enveloppe-Low_Pass%20Filtre/Enveloppe_Test.png)
-
-*The envelope detector output tracking the input amplitude.*
-
-
-In **ModelSim/Questa** or **Vivado**, add the `.vhd` source and its testbench to a project, set the testbench as the top simulation unit, and run the simulation.
-
----
-
-## 🛠️ Tools & Technologies
-
-- **HDL:** VHDL
-- **DSP concepts:** IIR biquad filters, envelope detection, digital oscillators
-- **Simulation:** `TODO` (ModelSim / Vivado / GHDL)
-- **Target hardware:** `TODO` (FPGA board, if any)
-
----
-
-## 🔮 Future Improvements
-
-- Increase the number of frequency channels for better intelligibility
-- Add real-time audio I/O (I2S codec) on FPGA
-- Handle sibilants/noise (unvoiced sounds) with a noise generator
-- Make carrier waveform and pitch selectable at runtime
-- Add self-checking testbenches with automatic pass/fail assertions
 ---
