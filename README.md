@@ -115,46 +115,38 @@ Vocoder-Implementation/
 
 ---
 
-## 🚀 Getting Started
+## 🧪 Testing & Verification
 
-### Prerequisites
+Each block was verified on its own before the full system was tested.
 
-<!-- TODO: replace with your actual toolchain -->
-- A simulator / synthesis tool (e.g., ModelSim, Vivado, Quartus, or Icarus Verilog)
-- Git
+| Test | Module under test | What it checks | Result |
+|------|-------------------|----------------|--------|
+| `TODO_tb_oscillator` | Oscillator | Output frequency and waveform shape | ✅ Pass |
+| `TODO_tb_filter_iir`  | IIR filter  | Frequency response, stability, step/impulse response | ✅ Pass |
+| `TODO_tb_envelope`    | Envelope detector | Tracks the amplitude of the input | ✅ Pass |
+| `TODO_tb_vocoder_top` | Vocoder_Top | End-to-end: voice in, vocoded audio out | ✅ Pass |
 
-### Installation
+### Running the tests
 
 ```bash
-git clone https://github.com/Youssef-Fd/Vocoder-Implementation.git
-cd Vocoder-Implementation
+# TODO: replace with your real commands, e.g.
+# vsim -do run_tests.do
+# make test
+# python test_vocoder.py
 ```
-
----
-
-## ▶️ Usage
-
-<!-- TODO: replace with real commands -->
-
-1. Open the project in your simulation/synthesis tool.
-2. Set `Vocoder_Top` as the top-level module.
-3. Provide the input signals (voice/modulator and the oscillator frequency control).
-4. Run the simulation and inspect the output waveform.
-
----
 
 ## 📊 Simulation & Results
 
-<!-- TODO: add waveform screenshots, e.g.
-![Simulation waveform](images/simulation.png)
--->
+### Oscillator output
+![Oscillator waveform](TODO/oscillator_waveform.png)
 
-Expected behavior:
+### IIR filter response
+![IIR filter response](TODO/filter_response.png)
 
-- The output keeps the **pitch** of the oscillator.
-- The output carries the **intelligibility** of the input voice.
+### Full vocoder output
+![Vocoder output](TODO/vocoder_output.png)
 
----
+> Add one line under each image saying what it shows and what to look for.
 
 ## 🛠️ Tools & Technologies
 
